@@ -91,15 +91,9 @@ void BlackHole::draw(const Shader& disk, const Shader& horizon,
     disk.use();
     disk.setMat4("model",dm); disk.setMat4("view",view); disk.setMat4("projection",proj);
     disk.setVec3("camPos",cam); disk.setFloat("time",time); disk.setFloat("rs",rs());
-    disk.setVec3("bhPos",position); disk.setBool("isJet",false);
+    disk.setVec3("bhPos",position);
     glBindVertexArray(diskVAO); glDrawElements(GL_TRIANGLES,diskIdxCount,GL_UNSIGNED_INT,nullptr);
 
-    disk.setMat4("model",model); disk.setBool("isJet",true);
-    glBindVertexArray(jetVAO);
-    glDrawArrays(GL_TRIANGLE_STRIP,0,jetVtxCount/2);
-    glDrawArrays(GL_TRIANGLE_STRIP,jetVtxCount/2,jetVtxCount/2);
-    glBindVertexArray(0);
-    disk.setBool("isJet",false);
     glEnable(GL_CULL_FACE);
 
     horizon.use();

@@ -30,7 +30,7 @@ void ParticleSystem::spawnParticle(const glm::vec3& bhPos, float rs){
     p.pos=bhPos+glm::vec3(p.orbitRadius*cosf(p.orbitAngle),p.orbitY,p.orbitRadius*sinf(p.orbitAngle));
     float heat=1.f-((p.orbitRadius-rs*2.2f)/(rs*12.8f));
     heat=glm::clamp(heat,0.f,1.f);
-    p.color={glm::mix(0.8f,1.f,heat),glm::mix(0.05f,0.7f,heat*heat),glm::mix(0.f,0.35f,heat*heat*heat),glm::mix(0.3f,1.f,heat)};
+    p.color={glm::mix(0.6f,0.9f,heat),glm::mix(0.7f,0.95f,heat*heat),glm::mix(0.8f,1.0f,heat*heat*heat),glm::mix(0.1f,0.5f,heat)};
     particles.push_back(p);
 }
 
@@ -49,9 +49,6 @@ void ParticleSystem::update(float dt, const glm::vec3& bhPos, float rs){
         p.pos=bhPos+glm::vec3(p.orbitRadius*cosf(p.orbitAngle),p.orbitY,p.orbitRadius*sinf(p.orbitAngle));
         float prox=glm::clamp((p.orbitRadius-rs)/(rs*3.f),0.f,1.f);
         p.color.a=lr*prox;
-        // Doppler shift: blue on approaching, red on receding
-        p.color.r=glm::clamp(glm::mix(p.color.r*0.5f,p.color.r*1.4f,doppler),0.f,3.f);
-        p.color.b=glm::clamp(glm::mix(p.color.b*1.6f,p.color.b*0.2f,doppler),0.f,3.f);
     }
     particles.erase(std::remove_if(particles.begin(),particles.end(),
         [&](const Particle& p){ return p.life<=0.f||p.orbitRadius<=rs*1.02f; }),particles.end());

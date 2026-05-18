@@ -10,7 +10,6 @@ uniform vec3 camPos;
 uniform vec3 bhPos;
 uniform float time;
 uniform float rs;
-uniform bool isJet;
 
 float hash(vec2 p) {
     return fract(1e4 * sin(17.0 * p.x + p.y * 0.1) * (0.1 + abs(sin(p.y * 13.0 + p.x))));
@@ -41,40 +40,33 @@ float fbm(vec2 p) {
 }
 
 void main() {
-    if (isJet) {
-        float dist = length(LocalPos);
-        float intensity = 1.0 / (1.0 + dist * 0.1);
-        intensity = pow(intensity, 3.0);
-        
-        vec3 color = vec3(0.5, 0.7, 1.0) * intensity * 2.0;
-        float alpha = intensity * 0.8;
-        FragColor = vec4(color, alpha);
-        return;
-    }
-
     float distFromCenter = length(LocalPos);
-    vec2 uv = vec2(TexCoords.x * 5.0, TexCoords.y * 20.0 - time * 2.0);
-    float n = fbm(uv + fbm(uv * 2.0 + time));
+    // Slower, more ethereal rotation
+    vec2 uv = vec2(TexCoords.x * 3.0, TexCoords.y * 15.0 - time * 0.5);
+    float n = fbm(uv + fbm(uv * 1.5 + time * 0.2));
     
     vec3 viewDir = normalize(camPos - FragPos);
     vec3 tangent = normalize(cross(vec3(0,1,0), LocalPos));
     float doppler = dot(tangent, viewDir);
     
+    // Ethereal color palette: Pale blues, purples, and whites
     float temp = 1.0 - TexCoords.x;
-    vec3 hotColor = vec3(1.0, 0.9, 0.6);
-    vec3 coolColor = vec3(0.8, 0.3, 0.0);
+    vec3 hotColor = vec3(0.9, 0.95, 1.0);
+    vec3 coolColor = vec3(0.4, 0.2, 0.6);
     vec3 baseColor = mix(coolColor, hotColor, temp);
     
+    // Subtle doppler shift
     vec3 dopplerColor = baseColor;
     if (doppler > 0.0) {
-        dopplerColor = mix(baseColor, vec3(0.5, 0.8, 1.0), doppler * 0.8);
+        dopplerColor = mix(baseColor, vec3(0.7, 0.9, 1.0), doppler * 0.4);
     } else {
-        dopplerColor = mix(baseColor, vec3(1.0, 0.1, 0.0), -doppler * 0.8);
+        dopplerColor = mix(baseColor, vec3(0.6, 0.4, 0.8), -doppler * 0.4);
     }
     
-    float intensity = pow(n, 1.5) * (1.0 - TexCoords.x) * 2.0;
-    float edgeFade = smoothstep(0.0, 0.1, TexCoords.x) * smoothstep(1.0, 0.8, TexCoords.x);
-    vec3 finalColor = dopplerColor * intensity * 3.0;
+    // Softer intensity and higher transparency
+    float intensity = pow(n, 2.0) * (1.0 - TexCoords.x) * 1.5;
+    float edgeFade = smoothstep(0.0, 0.2, TexCoords.x) * smoothstep(1.0, 0.7, TexCoords.x);
+    vec3 finalColor = dopplerColor * intensity * 2.5;
     
-    FragColor = vec4(finalColor, edgeFade * n);
+    FragColor = vec4(finalColor, edgeFade * n * 0.6);
 }

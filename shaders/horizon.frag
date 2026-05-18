@@ -7,9 +7,11 @@ uniform vec3 camPos;
 
 void main() {
     vec3 viewDir = normalize(camPos - FragPos);
+    // Fresnel-like edge glow
     float edge = 1.0 - max(dot(normalize(Normal), viewDir), 0.0);
-    edge = pow(edge, 10.0);
+    edge = pow(edge, 15.0); // Sharper but fainter
     
-    vec3 ringColor = vec3(1.0, 0.6, 0.1) * edge * 0.5;
-    FragColor = vec4(ringColor, 1.0);
+    // Ghostly violet/white glow
+    vec3 glowColor = vec3(0.7, 0.8, 1.0) * edge * 0.3;
+    FragColor = vec4(glowColor, 1.0);
 }
