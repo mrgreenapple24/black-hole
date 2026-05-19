@@ -25,25 +25,47 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-float cursorNormalisedX = 0.0f;
-float cursorNormalisedY = 0.0f;
+PostProcessor* g_postProcessor = nullptr;
+unsigned int g_scrWidth = SCR_WIDTH;
+unsigned int g_scrHeight = SCR_HEIGHT;
 
 // Callbacks
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
+    g_scrWidth = width;
+    g_scrHeight = height;
+    if (g_postProcessor) {
+        g_postProcessor->resize(width, height);
+    }
 }
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
-    
-    cursorNormalisedX = xpos / SCR_WIDTH - 0.5f;
-    cursorNormalisedY = ypos / SCR_HEIGHT - 0.5f;
+    if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos;
+    lastX = xpos;
+    lastY = ypos;
+    camera.processMouse(xoffset, yoffset);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    camera.processScroll(static_cast<float>(yoffset));
 }
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.processKeyboard(0, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.processKeyboard(1, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.processKeyboard(2, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.processKeyboard(3, deltaTime);
 }
 
 int main() {
@@ -100,6 +122,7 @@ int main() {
     Stars stars(50000);
     Model cupola("resources/models/cupola.glb");
     PostProcessor postProcessor(SCR_WIDTH, SCR_HEIGHT);
+    g_postProcessor = &postProcessor;
 
     float rotationX = 0.0f;
     float rotationY = 0.0f;
@@ -112,51 +135,47 @@ int main() {
 
         processInput(window);
 
-        // Update camera (matching WebGL Spaceship.js logic but wider range and smoother)
-        float targetRotationX = -cursorNormalisedY * 3.5f;
-        float targetRotationY = -cursorNormalisedX * 3.5f;
-        rotationX += (targetRotationX - rotationX) * deltaTime * 4.0f;
-        rotationY += (targetRotationY - rotationY) * deltaTime * 4.0f;
-
-        glm::mat4 camRot = glm::rotate(glm::mat4(1.0f), rotationY, glm::vec3(0, 1, 0));
-        camRot = glm::rotate(camRot, rotationX, glm::vec3(1, 0, 0));
-        
-        glm::vec3 camPos = glm::vec3(0, 0, 2); // Initial offset
-        // camPos = glm::vec3(camRot * glm::vec4(camPos, 1.0f)); // If we want to move camera around origin
-        
-        glm::mat4 view = glm::inverse(glm::translate(glm::mat4(1.0f), camPos) * camRot);
-        glm::mat4 projection = glm::perspective(glm::radians(75.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
+        glm::mat4 view = camera.viewMatrix();
+        glm::mat4 projection = camera.projMatrix((float)g_scrWidth / (float)g_scrHeight);
 
         blackHole.update(deltaTime);
 
         // Pass 1: Space
         postProcessor.startSpacePass();
         glEnable(GL_DEPTH_TEST);
-        stars.draw(starsShader, view, projection, (float)SCR_HEIGHT * 2.0f);
+        stars.draw(starsShader, view, projection, (float)g_scrHeight * 2.0f);
         blackHole.drawSpace(diskShader, horizonShader, view, projection);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-        particleSystem.draw(particleShader, view, projection, currentFrame, (float)SCR_HEIGHT * 2.0f);
+        particleSystem.draw(particleShader, view, projection, currentFrame, (float)g_scrHeight * 2.0f);
         glDepthMask(GL_TRUE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // Pass 2: Distortion
         postProcessor.startDistortionPass();
-        glDisable(GL_BLEND);
-        blackHole.drawDistortion(distortionActiveShader, distortionMaskShader, view, projection, camPos);
+        glDisable(GL_DEPTH_TEST);
+        blackHole.drawDistortion(distortionActiveShader, distortionMaskShader, view, projection, camera.position);
+        glEnable(GL_DEPTH_TEST);
 
         // Pass 3: Final
         glm::vec4 screenPos = projection * view * glm::vec4(blackHole.position, 1.0f);
-        glm::vec2 bhScreen = glm::vec2(screenPos.x / screenPos.w, screenPos.y / screenPos.w) * 0.5f + 0.5f;
+        glm::vec2 bhScreen;
+        if (screenPos.w > 0.0f) {
+            bhScreen = glm::vec2(screenPos.x / screenPos.w, screenPos.y / screenPos.w) * 0.5f + 0.5f;
+        } else {
+            bhScreen = glm::vec2(-10.0f, -10.0f);
+        }
         postProcessor.renderFinal(finalShader, bhScreen, 0.00001f);
 
         // Pass 4: Overlay (Cupola)
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
-        glm::mat4 cupolaModel = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 1.0f, sin(currentFrame * 0.5f) * 6.0f));
-        cupolaModel = glm::rotate(cupolaModel, 0.5f, glm::vec3(0, 1, 0));
-        cupolaModel = glm::scale(cupolaModel, glm::vec3(0.1f));
+        // Attach cupola to camera
+        glm::mat4 cupolaModel = glm::translate(glm::mat4(1.0f), camera.position + camera.front * 0.2f - camera.up * 0.08f);
+        cupolaModel = glm::rotate(cupolaModel, glm::radians(-camera.yaw - 90.0f), glm::vec3(0, 1, 0));
+        cupolaModel = glm::rotate(cupolaModel, glm::radians(camera.pitch), glm::vec3(1, 0, 0));
+        cupolaModel = glm::scale(cupolaModel, glm::vec3(0.01f));
         cupola.draw(cupolaShader, cupolaModel, view, projection);
 
         glfwSwapBuffers(window);

@@ -26,7 +26,7 @@ void main() {
 
         vec2 uv = vUv;
         uv.y *= 2.0;
-        uv.x += uTime / ((i * 10.0) + 1.0);
+        uv.x += uTime * 0.05; // Slow, stable rotation
 
         vec3 ringColor = mix(uInnerColor, uOuterColor, progress);
         float noiseIntensity = texture(uNoiseTexture, uv).r;

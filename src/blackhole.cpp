@@ -98,7 +98,7 @@ void BlackHole::drawSpace(const Shader& diskShader, const Shader& horizonShader,
     
     // Draw Horizon (Black Sphere)
     horizonShader.use();
-    glm::mat4 hModel = glm::scale(model, glm::vec3(1.0f));
+    glm::mat4 hModel = glm::scale(model, glm::vec3(0.95f)); // Slightly smaller to avoid z-fighting
     horizonShader.setMat4("model", hModel);
     horizonShader.setMat4("view", view);
     horizonShader.setMat4("projection", proj);

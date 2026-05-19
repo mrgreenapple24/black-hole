@@ -7,9 +7,18 @@ ParticleSystem::ParticleSystem(int count) : count(count) {
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
     for(int i = 0; i < count; ++i) {
-        data[i].distance = dist(rng);
-        data[i].size = dist(rng);
-        data[i].random = dist(rng);
+        if (i < count / 2) {
+            // Accretion disk particles
+            data[i].distance = dist(rng);
+            data[i].size = dist(rng);
+            data[i].random = dist(rng);
+        } else {
+            // 3D cloud particles
+            // Use distance > 1.0 to avoid being inside the horizon
+            data[i].distance = 1.0f + dist(rng) * 10.0f;
+            data[i].size = dist(rng) * 0.5f; // Slightly smaller
+            data[i].random = dist(rng) + 10.0f; // Offset random to distinguish in shader
+        }
     }
 
     glGenVertexArrays(1, &VAO);
