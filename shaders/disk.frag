@@ -1,72 +1,41 @@
 #version 330 core
-in vec3 FragPos;
-in vec2 TexCoords;
-in vec3 Normal;
-in vec3 LocalPos;
-
 out vec4 FragColor;
+in vec2 vUv;
 
-uniform vec3 camPos;
-uniform vec3 bhPos;
-uniform float time;
-uniform float rs;
+uniform float uTime;
+uniform sampler2D uNoiseTexture;
+uniform vec3 uInnerColor;
+uniform vec3 uOuterColor;
 
-float hash(vec2 p) {
-    return fract(1e4 * sin(17.0 * p.x + p.y * 0.1) * (0.1 + abs(sin(p.y * 13.0 + p.x))));
+float inverseLerp(float v, float minValue, float maxValue) {
+    return (v - minValue) / (maxValue - minValue);
 }
 
-float noise(vec2 x) {
-    vec2 i = floor(x);
-    vec2 f = fract(x);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
-
-float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    vec2 shift = vec2(100.0);
-    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-    for (int i = 0; i < 5; ++i) {
-        v += a * noise(p);
-        p = rot * p * 2.0 + shift;
-        a *= 0.5;
-    }
-    return v;
+vec3 blendAdd(vec3 base, vec3 blend) {
+    return min(base + blend, vec3(1.0));
 }
 
 void main() {
-    float distFromCenter = length(LocalPos);
-    // Slower, more ethereal rotation
-    vec2 uv = vec2(TexCoords.x * 3.0, TexCoords.y * 15.0 - time * 0.5);
-    float n = fbm(uv + fbm(uv * 1.5 + time * 0.2));
-    
-    vec3 viewDir = normalize(camPos - FragPos);
-    vec3 tangent = normalize(cross(vec3(0,1,0), LocalPos));
-    float doppler = dot(tangent, viewDir);
-    
-    // Ethereal color palette: Pale blues, purples, and whites
-    float temp = 1.0 - TexCoords.x;
-    vec3 hotColor = vec3(0.9, 0.95, 1.0);
-    vec3 coolColor = vec3(0.4, 0.2, 0.6);
-    vec3 baseColor = mix(coolColor, hotColor, temp);
-    
-    // Subtle doppler shift
-    vec3 dopplerColor = baseColor;
-    if (doppler > 0.0) {
-        dopplerColor = mix(baseColor, vec3(0.7, 0.9, 1.0), doppler * 0.4);
-    } else {
-        dopplerColor = mix(baseColor, vec3(0.6, 0.4, 0.8), -doppler * 0.4);
+    vec3 color = vec3(0.0);
+    float iterations = 3.0;
+
+    for(float i = 0.0; i < iterations; i++) {
+        float progress = i / (iterations - 1.0);
+        float intensity = 1.0 - ((vUv.y - progress) * iterations) * 0.5;
+        intensity = smoothstep(0.0, 1.0, intensity);
+
+        vec2 uv = vUv;
+        uv.y *= 2.0;
+        uv.x += uTime / ((i * 10.0) + 1.0);
+
+        vec3 ringColor = mix(uInnerColor, uOuterColor, progress);
+        float noiseIntensity = texture(uNoiseTexture, uv).r;
+        ringColor = mix(vec3(0.0), ringColor, noiseIntensity * intensity);
+        color = blendAdd(color, ringColor);
     }
-    
-    // Softer intensity and higher transparency
-    float intensity = pow(n, 2.0) * (1.0 - TexCoords.x) * 1.5;
-    float edgeFade = smoothstep(0.0, 0.2, TexCoords.x) * smoothstep(1.0, 0.7, TexCoords.x);
-    vec3 finalColor = dopplerColor * intensity * 2.5;
-    
-    FragColor = vec4(finalColor, edgeFade * n * 0.6);
+
+    float edgesAttenuation = min(inverseLerp(vUv.y, 0.0, 0.02), inverseLerp(vUv.y, 1.0, 0.5));
+    color = mix(vec3(0.0), color, edgesAttenuation);
+
+    FragColor = vec4(color, 1.0);
 }

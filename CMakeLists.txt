@@ -36,11 +36,23 @@ set(SOURCES
     src/camera.cpp
     src/blackhole.cpp
     src/particlesystem.cpp
+    src/noises.cpp
+    src/postprocessor.cpp
+    src/model.cpp
+    src/stars.cpp
 )
 
 add_executable(blackhole ${SOURCES})
 
-target_include_directories(blackhole PRIVATE include src external/glad/include external/glm)
+target_include_directories(blackhole PRIVATE 
+    include 
+    src 
+    external/glad/include 
+    external/glm 
+    external/tinygltf
+    external/nlohmann
+    external/stb
+)
 target_link_libraries(blackhole PRIVATE OpenGL::GL glfw glad glm)
 
 if(UNIX AND NOT APPLE)

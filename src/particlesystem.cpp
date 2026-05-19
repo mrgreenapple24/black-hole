@@ -1,73 +1,45 @@
 #include "particlesystem.h"
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/constants.hpp>
-#include <algorithm>
-#include <cmath>
 
-ParticleSystem::ParticleSystem(int max) : maxCount(max) {
-    particles.reserve(max); gpuBuf.reserve(max);
-    glGenVertexArrays(1,&VAO); glGenBuffers(1,&VBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER,VBO);
-    glBufferData(GL_ARRAY_BUFFER,max*sizeof(GPUParticle),nullptr,GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(0); glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(GPUParticle),(void*)0);
-    glEnableVertexAttribArray(1); glVertexAttribPointer(1,1,GL_FLOAT,GL_FALSE,sizeof(GPUParticle),(void*)12);
-    glEnableVertexAttribArray(2); glVertexAttribPointer(2,4,GL_FLOAT,GL_FALSE,sizeof(GPUParticle),(void*)16);
-    glBindVertexArray(0);
-}
-ParticleSystem::~ParticleSystem(){ glDeleteVertexArrays(1,&VAO); glDeleteBuffers(1,&VBO); }
+ParticleSystem::ParticleSystem(int count) : count(count) {
+    std::vector<ParticleAttr> data(count);
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-void ParticleSystem::spawnParticle(const glm::vec3& bhPos, float rs){
-    std::uniform_real_distribution<float> aD(0,glm::two_pi<float>());
-    std::uniform_real_distribution<float> rD(rs*2.2f,rs*15.f);
-    std::uniform_real_distribution<float> yD(-rs*0.25f,rs*0.25f);
-    std::uniform_real_distribution<float> lD(4.f,16.f);
-    std::uniform_real_distribution<float> sD(0.02f,0.18f);
-    Particle p;
-    p.orbitAngle=aD(rng); p.orbitRadius=rD(rng); p.orbitY=yD(rng);
-    p.angularVel=1.8f/sqrtf(p.orbitRadius/rs);
-    p.maxLife=lD(rng); p.life=p.maxLife; p.size=sD(rng);
-    p.pos=bhPos+glm::vec3(p.orbitRadius*cosf(p.orbitAngle),p.orbitY,p.orbitRadius*sinf(p.orbitAngle));
-    float heat=1.f-((p.orbitRadius-rs*2.2f)/(rs*12.8f));
-    heat=glm::clamp(heat,0.f,1.f);
-    p.color={glm::mix(0.6f,0.9f,heat),glm::mix(0.7f,0.95f,heat*heat),glm::mix(0.8f,1.0f,heat*heat*heat),glm::mix(0.1f,0.5f,heat)};
-    particles.push_back(p);
-}
-
-void ParticleSystem::update(float dt, const glm::vec3& bhPos, float rs){
-    int deficit=maxCount-(int)particles.size();
-    for(int i=0;i<std::min(deficit,150);++i) spawnParticle(bhPos,rs);
-    for(auto& p:particles){
-        p.life-=dt;
-        float lr=p.life/p.maxLife, ins=1.f-lr*lr;
-        p.orbitRadius-=ins*dt*rs*0.35f;
-        p.orbitRadius=std::max(p.orbitRadius,rs*1.05f);
-        p.angularVel=1.8f/sqrtf(p.orbitRadius/rs);
-        p.orbitAngle+=p.angularVel*dt;
-        float vx=-sinf(p.orbitAngle);
-        float doppler=(vx+1.f)*0.5f;
-        p.pos=bhPos+glm::vec3(p.orbitRadius*cosf(p.orbitAngle),p.orbitY,p.orbitRadius*sinf(p.orbitAngle));
-        float prox=glm::clamp((p.orbitRadius-rs)/(rs*3.f),0.f,1.f);
-        p.color.a=lr*prox;
+    for(int i = 0; i < count; ++i) {
+        data[i].distance = dist(rng);
+        data[i].size = dist(rng);
+        data[i].random = dist(rng);
     }
-    particles.erase(std::remove_if(particles.begin(),particles.end(),
-        [&](const Particle& p){ return p.life<=0.f||p.orbitRadius<=rs*1.02f; }),particles.end());
-}
 
-void ParticleSystem::uploadToGPU(){
-    gpuBuf.clear(); gpuBuf.reserve(particles.size());
-    for(auto& p:particles) gpuBuf.push_back({p.pos,p.size,p.color});
-    glBindBuffer(GL_ARRAY_BUFFER,VBO);
-    glBufferSubData(GL_ARRAY_BUFFER,0,gpuBuf.size()*sizeof(GPUParticle),gpuBuf.data());
-}
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(ParticleAttr), data.data(), GL_STATIC_DRAW);
 
-void ParticleSystem::draw(const Shader& shader, const glm::mat4& view, const glm::mat4& proj, const glm::vec3& cam){
-    if(particles.empty()) return;
-    uploadToGPU();
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE); glDepthMask(GL_FALSE);
-    shader.use();
-    shader.setMat4("view",view); shader.setMat4("projection",proj); shader.setVec3("camPos",cam);
-    glBindVertexArray(VAO); glDrawArrays(GL_POINTS,0,(GLsizei)gpuBuf.size());
+    glEnableVertexAttribArray(0); glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleAttr), (void*)0);
+    glEnableVertexAttribArray(1); glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleAttr), (void*)4);
+    glEnableVertexAttribArray(2); glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleAttr), (void*)8);
     glBindVertexArray(0);
-    glDepthMask(GL_TRUE); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+}
+
+ParticleSystem::~ParticleSystem() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+}
+
+void ParticleSystem::draw(const Shader& shader, const glm::mat4& view, const glm::mat4& proj, float time, float viewHeight) {
+    shader.use();
+    shader.setMat4("view", view);
+    shader.setMat4("projection", proj);
+    shader.setFloat("uTime", time);
+    shader.setVec3("uInnerColor", glm::vec3(1.0f, 0.5f, 0.5f));
+    shader.setVec3("uOuterColor", glm::vec3(0.21f, 0.2f, 1.0f));
+    shader.setFloat("uViewHeight", viewHeight);
+    shader.setFloat("uSize", 0.05f);
+
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_POINTS, 0, count);
+    glBindVertexArray(0);
 }
