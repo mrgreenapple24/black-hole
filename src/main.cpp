@@ -42,16 +42,22 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
-    if (firstMouse) {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        if (firstMouse) {
+            lastX = xpos;
+            lastY = ypos;
+            firstMouse = false;
+        }
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos;
+        camera.processMouse(xoffset, yoffset);
+    } else {
+        firstMouse = true;
     }
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos;
+
     lastX = xpos;
     lastY = ypos;
-    camera.processMouse(xoffset, yoffset);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
@@ -61,11 +67,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.processKeyboard(0, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.processKeyboard(1, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.processKeyboard(2, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.processKeyboard(3, deltaTime);
 }
 
 int main() {
@@ -90,6 +91,7 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Not disabled to match WebGL mouse move
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -176,7 +178,7 @@ int main() {
         cupolaModel = glm::rotate(cupolaModel, glm::radians(-camera.yaw - 90.0f), glm::vec3(0, 1, 0));
         cupolaModel = glm::rotate(cupolaModel, glm::radians(camera.pitch), glm::vec3(1, 0, 0));
         cupolaModel = glm::scale(cupolaModel, glm::vec3(0.01f));
-        cupola.draw(cupolaShader, cupolaModel, view, projection);
+        // cupola.draw(cupolaShader, cupolaModel, view, projection);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
