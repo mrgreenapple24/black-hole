@@ -13,8 +13,13 @@ Stars::Stars(int count) : count(count) {
         float r = 400.0f;
         data[i].pos = glm::vec3(r * sinf(phi) * cosf(theta), r * sinf(phi) * sinf(theta), r * cosf(phi));
         data[i].size = dist(rng);
-        // HSL to RGB approximation (hsl(random, 100%, 80%))
-        data[i].color = glm::vec3(0.8f, 0.8f, 1.0f); // Simplification: pale blue stars
+        
+        // Random star colors (mostly white, some blue/yellow/red tints)
+        float hue = dist(rng);
+        if (hue < 0.1f) data[i].color = glm::vec3(1.0f, 0.8f, 0.8f); // red-ish
+        else if (hue < 0.2f) data[i].color = glm::vec3(0.8f, 0.8f, 1.0f); // blue-ish
+        else if (hue < 0.3f) data[i].color = glm::vec3(1.0f, 1.0f, 0.8f); // yellow-ish
+        else data[i].color = glm::vec3(1.0f, 1.0f, 1.0f); // white
     }
 
     glGenVertexArrays(1, &VAO);
@@ -39,7 +44,7 @@ void Stars::draw(const Shader& shader, const glm::mat4& view, const glm::mat4& p
     shader.setMat4("view", view);
     shader.setMat4("projection", proj);
     shader.setFloat("uViewHeight", viewHeight);
-    shader.setFloat("uSize", 0.1f);
+    shader.setFloat("uSize", 0.001f);
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_POINTS, 0, count);

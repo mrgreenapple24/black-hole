@@ -85,6 +85,7 @@ int main() {
 
     // Load Shaders
     Shader diskShader("shaders/disk.vert", "shaders/disk.frag");
+    Shader horizonShader("shaders/horizon.vert", "shaders/horizon.frag");
     Shader particleShader("shaders/particle.vert", "shaders/particle.frag");
     Shader starsShader("shaders/stars.vert", "shaders/stars.frag");
     Shader distortionActiveShader("shaders/distortion.vert", "shaders/distortion_active.frag");
@@ -111,11 +112,11 @@ int main() {
 
         processInput(window);
 
-        // Update camera (matching WebGL Spaceship.js logic)
-        float targetRotationX = -cursorNormalisedY;
-        float targetRotationY = -cursorNormalisedX;
-        rotationX += (targetRotationX - rotationX) * deltaTime * 2.0f;
-        rotationY += (targetRotationY - rotationY) * deltaTime * 2.0f;
+        // Update camera (matching WebGL Spaceship.js logic but wider range and smoother)
+        float targetRotationX = -cursorNormalisedY * 3.5f;
+        float targetRotationY = -cursorNormalisedX * 3.5f;
+        rotationX += (targetRotationX - rotationX) * deltaTime * 4.0f;
+        rotationY += (targetRotationY - rotationY) * deltaTime * 4.0f;
 
         glm::mat4 camRot = glm::rotate(glm::mat4(1.0f), rotationY, glm::vec3(0, 1, 0));
         camRot = glm::rotate(camRot, rotationX, glm::vec3(1, 0, 0));
@@ -132,7 +133,7 @@ int main() {
         postProcessor.startSpacePass();
         glEnable(GL_DEPTH_TEST);
         stars.draw(starsShader, view, projection, (float)SCR_HEIGHT * 2.0f);
-        blackHole.drawSpace(diskShader, view, projection);
+        blackHole.drawSpace(diskShader, horizonShader, view, projection);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -148,7 +149,7 @@ int main() {
         // Pass 3: Final
         glm::vec4 screenPos = projection * view * glm::vec4(blackHole.position, 1.0f);
         glm::vec2 bhScreen = glm::vec2(screenPos.x / screenPos.w, screenPos.y / screenPos.w) * 0.5f + 0.5f;
-        postProcessor.renderFinal(finalShader, bhScreen, 0.0001f);
+        postProcessor.renderFinal(finalShader, bhScreen, 0.00001f);
 
         // Pass 4: Overlay (Cupola)
         glEnable(GL_DEPTH_TEST);

@@ -7,11 +7,13 @@
 
 BlackHole::BlackHole() {
     buildDisk();
+    buildHorizon();
     buildDistortionMeshes();
 }
 
 BlackHole::~BlackHole() {
     if(diskVAO) { glDeleteVertexArrays(1,&diskVAO); glDeleteBuffers(1,&diskVBO); glDeleteBuffers(1,&diskEBO); }
+    if(horizonVAO) { glDeleteVertexArrays(1,&horizonVAO); glDeleteBuffers(1,&horizonVBO); glDeleteBuffers(1,&horizonEBO); }
     if(distActiveVAO) { glDeleteVertexArrays(1,&distActiveVAO); glDeleteBuffers(1,&distActiveVBO); }
     if(distMaskVAO) { glDeleteVertexArrays(1,&distMaskVAO); glDeleteBuffers(1,&distMaskVBO); }
 }
@@ -21,7 +23,7 @@ void BlackHole::update(float dt) {
 }
 
 void BlackHole::buildDisk() {
-    const int RINGS = 10, SEGS = 64;
+    const int RINGS = 64, SEGS = 64;
     float inner = 1.0f, outer = 5.0f;
     struct V { glm::vec3 pos; glm::vec2 uv; };
     std::vector<V> verts; std::vector<GLuint> idx;
@@ -46,6 +48,30 @@ void BlackHole::buildDisk() {
     glBindVertexArray(0);
 }
 
+void BlackHole::buildHorizon() {
+    const int SL = 32, SE = 32;
+    struct V { glm::vec3 pos; };
+    std::vector<V> verts; std::vector<GLuint> idx;
+    for(int i = 0; i <= SL; ++i) {
+        float phi = glm::pi<float>() * i / SL;
+        for(int j = 0; j <= SE; ++j) {
+            float th = glm::two_pi<float>() * j / SE;
+            verts.push_back({{sinf(phi) * cosf(th), cosf(phi), sinf(phi) * sinf(th)}});
+        }
+    }
+    for(int i = 0; i < SL; ++i) for(int j = 0; j < SE; ++j) {
+        GLuint a = i * (SE + 1) + j, b = a + 1, c = a + (SE + 1), d = c + 1;
+        idx.insert(idx.end(), {a, b, c, b, d, c});
+    }
+    horizonIdxCount = (int)idx.size();
+    glGenVertexArrays(1, &horizonVAO); glGenBuffers(1, &horizonVBO); glGenBuffers(1, &horizonEBO);
+    glBindVertexArray(horizonVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, horizonVBO); glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(V), verts.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, horizonEBO); glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx.size() * 4, idx.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0); glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(V), (void*)0);
+    glBindVertexArray(0);
+}
+
 void BlackHole::buildDistortionMeshes() {
     float quad[] = {
         -0.5f,  0.5f, 0.0f, 0.0f, 1.0f,
@@ -67,9 +93,20 @@ void BlackHole::buildDistortionMeshes() {
     glBindVertexArray(0);
 }
 
-void BlackHole::drawSpace(const Shader& diskShader, const glm::mat4& view, const glm::mat4& proj) {
-    diskShader.use();
+void BlackHole::drawSpace(const Shader& diskShader, const Shader& horizonShader, const glm::mat4& view, const glm::mat4& proj) {
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+    
+    // Draw Horizon (Black Sphere)
+    horizonShader.use();
+    glm::mat4 hModel = glm::scale(model, glm::vec3(1.0f));
+    horizonShader.setMat4("model", hModel);
+    horizonShader.setMat4("view", view);
+    horizonShader.setMat4("projection", proj);
+    glBindVertexArray(horizonVAO);
+    glDrawElements(GL_TRIANGLES, horizonIdxCount, GL_UNSIGNED_INT, 0);
+
+    // Draw Disk
+    diskShader.use();
     diskShader.setMat4("model", model);
     diskShader.setMat4("view", view);
     diskShader.setMat4("projection", proj);

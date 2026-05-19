@@ -37,7 +37,7 @@ void ParticleSystem::draw(const Shader& shader, const glm::mat4& view, const glm
     shader.setVec3("uInnerColor", glm::vec3(1.0f, 0.5f, 0.5f));
     shader.setVec3("uOuterColor", glm::vec3(0.21f, 0.2f, 1.0f));
     shader.setFloat("uViewHeight", viewHeight);
-    shader.setFloat("uSize", 0.05f);
+    shader.setFloat("uSize", 0.015f);
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_POINTS, 0, count);

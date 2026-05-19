@@ -78,6 +78,8 @@ void PostProcessor::startDistortionPass() {
     fboDistortion.bind();
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
 }
 
 void PostProcessor::renderFinal(Shader &shader, const glm::vec2 &bhScreenPos, float rgbShift) {

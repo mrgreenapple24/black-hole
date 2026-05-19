@@ -13,14 +13,16 @@ public:
     ~BlackHole();
     void update(float dt);
     
-    void drawSpace(const Shader& diskShader, const glm::mat4& view, const glm::mat4& proj);
+    void drawSpace(const Shader& diskShader, const Shader& horizonShader, const glm::mat4& view, const glm::mat4& proj);
     void drawDistortion(const Shader& activeShader, const Shader& maskShader, const glm::mat4& view, const glm::mat4& proj, const glm::vec3& camPos);
 
 private:
     GLuint diskVAO=0, diskVBO=0, diskEBO=0; int diskIdxCount=0;
+    GLuint horizonVAO=0, horizonVBO=0, horizonEBO=0; int horizonIdxCount=0;
     GLuint distActiveVAO=0, distActiveVBO=0;
     GLuint distMaskVAO=0, distMaskVBO=0;
 
     void buildDisk();
+    void buildHorizon();
     void buildDistortionMeshes();
 };
